@@ -3,9 +3,25 @@
 </template>
 
 <script setup>
+import L from "leaflet";
 import { onMounted } from "vue";
 
+const props = defineProps({
+    lat: {
+        type: Number,
+        required: true,
+    },
+    lng: {
+        type: Number,
+        required: true,
+    },
+});
+
 onMounted(() => {
-    // Google Maps API 読み込み後に地図を描画する処理をここに書く
+    const map = L.map("map").setView([props.lat, props.lng], 15);
+    L.tileLayer("https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png", {
+        attribution: "&copy; OpenStreetMap contributors",
+    }).addTo(map);
+    L.marker([props.lat, props.lng]).addTo(map);
 });
 </script>
