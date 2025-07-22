@@ -1,0 +1,46 @@
+name: CI (local)
+
+on: [push, pull_request]
+
+jobs:
+  tests:
+    runs-on: ubuntu-latest
+
+    steps:
+      - uses: actions/checkout@v3
+
+      - name: Install docker-compose
+        run: |
+          curl -L https://github.com/docker/compose/releases/download/v2.27.0/docker-compose-linux-x86_64 -o /usr/local/bin/docker-compose
+          chmod +x /usr/local/bin/docker-compose
+
+      - name: Start containers
+        run: docker-compose up -d --build
+
+      - name: Wait for PostgreSQL
+        run: |
+          for i in {1..10}; do
+            docker-compose exec pgsql pg_isready -U ${{ secrets.DB_USERNAME || 'postgres' }} && break
+            echo "Waiting for pgsql..."
+            sleep 3
+          done
+
+      - name: Wait for Laravel container
+        run: |
+          for i in {1..10}; do
+            docker-compose exec laravel.test ls /var/www > /dev/null 2>&1 && break
+            echo "Waiting for laravel.test to be ready..."
+            sleep 3
+          done
+
+      - name: Run tests inside app container
+        run: |
+          docker-compose exec laravel.test bash -c "
+            cp .env.testing .env &&
+            php artisan key:generate &&
+            php artisan migrate --force &&
+            php artisan test
+          "
+
+      - name: Shut down containers
+        run: docker-compose down
