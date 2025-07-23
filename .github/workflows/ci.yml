@@ -7,40 +7,59 @@ jobs:
     runs-on: ubuntu-latest
 
     steps:
-      - uses: actions/checkout@v3
+      - name: Checkout
+        uses: actions/checkout@v3
 
-      - name: Install docker-compose
+      - name: Setup PHP
+        uses: shivammathur/setup-php@v2
+        with:
+          php-version: 8.2
+          extensions: mbstring, tokenizer, xml
+          tools: composer
+
+      - name: Install dependencies
+        run: composer install --prefer-dist --no-progress --no-suggest
+
+      - name: Ensure Sail executable
+        run: chmod +x vendor/bin/sail
+
+      - name: Start Sail
+        run: ./vendor/bin/sail up -d
+
+      - name: Wait for Laravel container to be ready
         run: |
-          curl -L https://github.com/docker/compose/releases/download/v2.27.0/docker-compose-linux-x86_64 -o /usr/local/bin/docker-compose
-          chmod +x /usr/local/bin/docker-compose
-
-      - name: Start containers
-        run: docker-compose up -d --build
-
-      - name: Wait for PostgreSQL
-        run: |
-          for i in {1..10}; do
-            docker-compose exec pgsql pg_isready -U ${{ secrets.DB_USERNAME || 'postgres' }} && break
-            echo "Waiting for pgsql..."
+          for i in {1..15}; do
+            container_id=$(docker ps --filter "name=laravel.test" -q)
+            if [ -z "$container_id" ]; then
+              echo "laravel.test container not found"
+            else
+              status=$(docker inspect -f '{{.State.Running}}' "$container_id")
+              if [ "$status" = "true" ]; then
+                echo "laravel.test is running"
+                break
+              fi
+            fi
+            echo "Waiting for laravel.test container to be ready..."
             sleep 3
           done
 
-      - name: Wait for Laravel container
+      - name: Wait for PostgreSQL to be ready
         run: |
-          for i in {1..10}; do
-            docker-compose exec laravel.test ls /var/www > /dev/null 2>&1 && break
-            echo "Waiting for laravel.test to be ready..."
+          for i in {1..15}; do
+            ./vendor/bin/sail exec pgsql pg_isready -U "${DB_USERNAME:-postgres}" && break
+            echo "Waiting for PostgreSQL..."
             sleep 3
           done
 
-      - name: Run tests inside app container
+      - name: Prepare environment
         run: |
-          docker-compose exec laravel.test bash -c "
-            cp .env.testing .env &&
-            php artisan key:generate &&
-            php artisan migrate --force &&
-            php artisan test
-          "
+          ./vendor/bin/sail exec laravel.test cp .env.testing .env
+          ./vendor/bin/sail artisan key:generate
+          ./vendor/bin/sail artisan migrate --force
 
-      - name: Shut down containers
-        run: docker-compose down
+      - name: Run tests
+        run: ./vendor/bin/sail test
+
+      - name: Shut down Sail
+        if: always()
+        run: ./vendor/bin/sail down
