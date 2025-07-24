@@ -3,19 +3,26 @@
 namespace App\Http\Controllers;
 
 use App\Models\Property;
+use App\Models\Agent;
 use Illuminate\Http\Request;
+use Inertia\Inertia;
 
 class PropertyController extends Controller
 {
     public function index()
     {
-        $properties = Property::all();
-        return view('properties.index', compact('properties'));
+        $properties = Property::with('agents')->get();
+        return Inertia::render('Properties/Index', [
+            'properties' => $properties,
+        ]);
     }
 
     public function create()
     {
-        return view('properties.create');
+        $agents = Agent::all();
+        return Inertia::render('Properties/Create', [
+            'agents' => $agents,
+        ]);
     }
 
     public function store(Request $request)
@@ -32,12 +39,19 @@ class PropertyController extends Controller
 
     public function show(Property $property)
     {
-        return view('properties.show', compact('property'));
+        $property->load('agents');
+        return Inertia::render('Properties/Show', [
+            'property' => $property,
+        ]);
     }
 
     public function edit(Property $property)
     {
-        return view('properties.edit', compact('property'));
+        $agents = Agent::all();
+        return Inertia::render('Properties/Edit', [
+            'property' => $property,
+            'agents' => $agents,
+        ]);
     }
 
     public function update(Request $request, Property $property)
