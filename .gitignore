@@ -22,4 +22,9 @@
 Homestead.json
 Homestead.yaml
 Thumbs.db
+#ci関連ファイル
 .actrc
+docker-compose.ci.yml
+Dockerfile
+.evn.testing
+.github
