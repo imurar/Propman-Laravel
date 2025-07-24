@@ -1,65 +1,45 @@
-name: CI (local)
+name: CI
 
 on: [push, pull_request]
 
 jobs:
-  tests:
+  test:
     runs-on: ubuntu-latest
 
     steps:
-      - name: Checkout
-        uses: actions/checkout@v3
+      - name: Checkout code
+        uses: actions/checkout@v4
 
-      - name: Setup PHP
-        uses: shivammathur/setup-php@v2
-        with:
-          php-version: 8.2
-          extensions: mbstring, tokenizer, xml
-          tools: composer
+      - name: Set up Docker Compose
+        run: docker compose version
 
-      - name: Install dependencies
-        run: composer install --prefer-dist --no-progress --no-suggest
+      - name: Build app container
+        run: |
+          DOCKER_BUILDKIT=0 docker compose -f docker-compose.ci.yml build app
 
-      - name: Ensure Sail executable
-        run: chmod +x vendor/bin/sail
+      - name: Start containers
+        run: |
+          docker compose -f docker-compose.ci.yml up -d
 
-      - name: Start Sail
-        run: ./vendor/bin/sail up -d
-
-      - name: Wait for Laravel container to be ready
+      - name: Wait for DB to be ready
         run: |
           for i in {1..15}; do
-            container_id=$(docker ps --filter "name=laravel.test" -q)
-            if [ -z "$container_id" ]; then
-              echo "laravel.test container not found"
-            else
-              status=$(docker inspect -f '{{.State.Running}}' "$container_id")
-              if [ "$status" = "true" ]; then
-                echo "laravel.test is running"
-                break
-              fi
-            fi
-            echo "Waiting for laravel.test container to be ready..."
-            sleep 3
-          done
-
-      - name: Wait for PostgreSQL to be ready
-        run: |
-          for i in {1..15}; do
-            ./vendor/bin/sail exec pgsql pg_isready -U "${DB_USERNAME:-postgres}" && break
+            docker compose -f docker-compose.ci.yml exec -T db pg_isready -U postgres && break
             echo "Waiting for PostgreSQL..."
-            sleep 3
+            sleep 2
           done
 
-      - name: Prepare environment
+      - name: Prepare Laravel application
         run: |
-          ./vendor/bin/sail exec laravel.test cp .env.testing .env
-          ./vendor/bin/sail artisan key:generate
-          ./vendor/bin/sail artisan migrate --force
+          docker compose -f docker-compose.ci.yml exec -T app cp .env.testing .env
+          docker compose -f docker-compose.ci.yml exec -T app composer install --no-interaction --prefer-dist
+          docker compose -f docker-compose.ci.yml exec -T app php artisan key:generate
+          docker compose -f docker-compose.ci.yml exec -T app php artisan migrate --force
 
-      - name: Run tests
-        run: ./vendor/bin/sail test
+      - name: Run Laravel tests
+        run: |
+          docker compose -f docker-compose.ci.yml exec -T app php artisan test
 
-      - name: Shut down Sail
+      - name: Tear down containers
         if: always()
-        run: ./vendor/bin/sail down
+        run: docker compose -f docker-compose.ci.yml down --volumes --remove-orphans

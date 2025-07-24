@@ -1,7 +1,11 @@
 services:
     laravel.test:
-        container_name: laravel.test
-        image: ghcr.io/laravel/sail/php:8.2
+        build:
+            context: "./vendor/laravel/sail/runtimes/8.3"
+            dockerfile: Dockerfile
+            args:
+                WWWGROUP: "${WWWGROUP}"
+        image: "sail-8.3/app"
         extra_hosts:
             - "host.docker.internal:host-gateway"
         ports:
@@ -19,9 +23,8 @@ services:
             - sail
         depends_on:
             - pgsql
-
     pgsql:
-        image: postgres:17
+        image: "postgres:17"
         ports:
             - "${FORWARD_DB_PORT:-5432}:5432"
         environment:
@@ -36,22 +39,18 @@ services:
             - sail
         healthcheck:
             test:
-                [
-                    "CMD",
-                    "pg_isready",
-                    "-q",
-                    "-d",
-                    "${DB_DATABASE}",
-                    "-U",
-                    "${DB_USERNAME}",
-                ]
+                - CMD
+                - pg_isready
+                - "-q"
+                - "-d"
+                - "${DB_DATABASE}"
+                - "-U"
+                - "${DB_USERNAME}"
             retries: 3
             timeout: 5s
-
 networks:
     sail:
         driver: bridge
-
 volumes:
     sail-pgsql:
         driver: local
