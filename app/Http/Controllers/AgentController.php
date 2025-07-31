@@ -4,18 +4,19 @@ namespace App\Http\Controllers;
 
 use App\Models\Agent;
 use Illuminate\Http\Request;
+use Inertia\Inertia;
 
 class AgentController extends Controller
 {
     public function index()
     {
         $agents = Agent::all();
-        return view('agents.index', compact('agents'));
+        return Inertia::render('Agents/Index', compact('agents'));
     }
 
     public function create()
     {
-        return view('agents.create');
+        return Inertia::render('Agents/Create');
     }
 
     public function store(Request $request)
@@ -30,12 +31,12 @@ class AgentController extends Controller
 
     public function show(Agent $agent)
     {
-        return view('agents.show', compact('agent'));
+        return Inertia::render('Agents/Show', compact('agent'));
     }
 
     public function edit(Agent $agent)
     {
-        return view('agents.edit', compact('agent'));
+        return Inertia::render('Agents/Edit', compact('agent'));
     }
 
     public function update(Request $request, Agent $agent)
