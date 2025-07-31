@@ -1,11 +1,12 @@
-import { createInertiaApp } from "@inertiajs/inertia-vue3";
-import { createApp, h } from "vue";
+import "leaflet/dist/leaflet.css";
+import { createApp } from "vue";
+import "./bootstrap";
+import AgentAssign from "./components/AgentAssign.vue";
+import PropertyMap from "./components/PropertyMap.vue";
 
-createInertiaApp({
-    resolve: (name) => require(`./Pages/${name}.vue`),
-    setup({ el, App, props, plugin }) {
-        createApp({ render: () => h(App, props) })
-            .use(plugin)
-            .mount(el);
-    },
-});
+const app = createApp({});
+app.component("property-map", PropertyMap);
+app.component("agent-assign", AgentAssign);
+
+app.mount("#vue-property-map");
+app.mount("#vue-agent-assign");
